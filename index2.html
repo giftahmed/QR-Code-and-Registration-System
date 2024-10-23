@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>QR Code Validator</title>
+  <script src="https://unpkg.com/html5-qrcode/minified/html5-qrcode.min.js"></script>
+  <style>
+    body {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      margin: 0;
+      background-color: #121212;
+      color: #fff;
+      font-family: Arial, sans-serif;
+    }
+
+    h1 {
+      margin-bottom: 10px;
+      text-align: center;
+    }
+
+    #reader {
+      width: 300px;
+      height: 300px;
+      border: 2px solid #4caf50;
+      margin-bottom: 15px;
+      position: relative;
+    }
+
+    #result {
+      margin-top: 15px;
+      padding: 10px;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+      width: 80%;
+      text-align: center;
+      background-color: #333;
+      color: #fff;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>QR Code Validator</h1>
+  <div id="reader"></div>
+  <div id="result">Waiting for QR code scan...</div>
+
+  <script>
+    const powerAutomateUrl = 'https://prod-xx.powerautomate.com/...'; // Replace with your Power Automate URL
+
+    // Function to send the QR code data to Power Automate
+    function sendQRDataToPowerAutomate(data) {
+      fetch(powerAutomateUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ qrData: data })
+      })
+      .then(response => response.json())
+      .then(result => {
+        document.getElementById('result').innerText =
+          result.status === 'success' ? 'Success! QR Code Validated.' : 'Failed! QR Code Invalid.';
+      })
+      .catch(error => {
+        console.error('Error:', error);
+        document.getElementById('result').innerText = 'Error occurred. Please try again.';
+      });
+    }
+
+    // Initialize the QR Code Scanner
+    function startQRScanner() {
+      const html5QrCode = new Html5Qrcode("reader");
+
+      // Try to start the scanner with the back camera (if available)
+      html5QrCode.start(
+        { facingMode: "environment" },
+        { fps: 10, qrbox: 250 },
+        (decodedText) => {
+          console.log(`QR Code detected: ${decodedText}`);
+          html5QrCode.stop(); // Stop the scanner after a successful scan
+          sendQRDataToPowerAutomate(decodedText); // Send the data for validation
+        },
+        (errorMessage) => {
+          console.warn(`QR Code scanning error: ${errorMessage}`);
+        }
+      ).catch((err) => {
+        console.error('Camera initialization error:', err);
+        document.getElementById('result').innerText =
+          'Unable to access the camera. Ensure camera permissions are granted.';
+      });
+    }
+
+    // Start the scanner when the page loads
+    window.addEventListener('load', startQRScanner);
+  </script>
+
+</body>
+</html>
