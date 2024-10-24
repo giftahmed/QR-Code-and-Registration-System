@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QR Code Scanner</title>
+
+    <script src="https://cdn.jsdelivr.net/npm/jsqr/dist/jsQR.js"></script>
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+        }
+
+        h1 {
+            color: #333;
+        }
+
+        #qr-scanner {
+            position: relative;
+            width: 300px;
+            height: 300px;
+            border: 2px solid #333;
+            margin-bottom: 20px;
+        }
+
+        canvas {
+            display: none;
+        }
+
+        #result {
+            font-size: 18px;
+            font-weight: bold;
+            margin-top: 20px;
+            color: #4CAF50;
+        }
+
+        #loading {
+            display: none;
+            font-size: 16px;
+            color: #999;
+        }
+
+        #error {
+            color: red;
+            font-size: 16px;
+            margin-top: 20px;
+        }
+
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+
+        button:hover {
+            background-color: #45a049;
+        }
+
+        .back-button {
+            margin-top: 20px;
+            background-color: #4CAF50;
+        }
+
+        .back-button:hover {
+            background-color: #45a049;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>QR Code Scanner</h1>
+
+    <div id="qr-scanner">
+        <video id="video" width="300" height="300"></video>
+    </div>
+
+    <div id="result">Scan a QR code to see the result here.</div>
+
+    <div id="loading">Checking QR code in SharePoint...</div>
+
+    <div id="error"></div>
+
+    <canvas id="canvas" width="300" height="300"></canvas>
+
+    <button class="back-button" onclick="window.location.href='index.html'">Back</button>
+
+    <script>
+        const video = document.getElementById("video");
+        const canvas = document.getElementById("canvas");
+        const result = document.getElementById("result");
+        const loading = document.getElementById("loading");
+        const error = document.getElementById("error");
+        const canvasContext = canvas.getContext("2d");
+
+        function startCamera() {
+            navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
+                .then(function(stream) {
+                    video.srcObject = stream;
+                    video.play();
+                    scanQRCode();
+                })
+                .catch(function(err) {
+                    error.innerText = "Error accessing the camera: " + err.message;
+                });
+        }
+
+        function scanQRCode() {
+            canvasContext.drawImage(video, 0, 0, canvas.width, canvas.height);
+            const imageData = canvasContext.getImageData(0, 0, canvas.width, canvas.height);
+            const qrCode = jsQR(imageData.data, imageData.width, imageData.height);
+
+            if (qrCode) {
+                result.innerText = `Scanned: ${qrCode.data}`;
+                video.pause();
+                sendDataToPowerAutomate(qrCode.data);
+            } else {
+                requestAnimationFrame(scanQRCode);
+            }
+        }
+
+        function sendDataToPowerAutomate(qrData) {
+            loading.style.display = "block";
+            fetch('https://prod-157.westeurope.logic.azure.com:443/workflows/b8a448099afa40ad9b99c19862201659/triggers/manual/paths/invoke?api-version=2016-06-01&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=bPgSgBY6mZ7JqxVHkgt7HFV17jUy-iU_FCUJVLC9GZA', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ qrData: qrData }),
+            })
+            .then(response => response.json())
+            .then(data => {
+                loading.style.display = "none";
+                if (data.status === 'Success') {
+                    result.innerText = "Match found in Database! ✅";
+                } else {
+                    result.innerText = "No match found in Database. ❌";
+                }
+            })
+            .catch((error) => {
+                loading.style.display = "none";
+                error.innerText = 'Error: ' + error.message;
+            });
+        }
+
+        window.addEventListener('load', () => {
+            startCamera();
+        });
+    </script>
+
+</body>
+</html>
